@@ -1,0 +1,137 @@
+name: Build and upload wheels
+on: [push, pull_request]
+env:
+  CIBW_BUILD: 'cp311-musllinux_*'
+concurrency:
+  # Group runs by PR, but keep runs on the default branch separate
+  # because we do not want to cancel wheel uploads
+  group: pr-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      recipes_found: ${{ steps.recipes_changes.outputs.recipes_found }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # The range of commits to check for changes is:
+      # - `origin/master...` for all events happening on a feature branch
+      # - for events on the master branch we compare against the sha before the event
+      #   (note that this does not work for feature branch events since we want all
+      #   commits on the feature branch and not just the commits of the last event)
+      # - for pull requests we compare against the 1st ancestor, given the current
+      #   HEAD is the merge between the PR branch and the base branch
+      - name: Set commit range
+        id: commit_range_step
+        run: |
+          if [ "${{ github.event_name }}" = 'push' -a "${{github.ref}}" != 'refs/heads/master' ]; then
+              # push to a feature branch
+              git fetch origin master
+              commit_range='origin/master...'
+          elif [ "${{ github.event_name }}" = 'push' -a "${{ github.ref }}" = 'refs/heads/master' ]; then
+              # push to the master branch, e.g. merge
+              commit_range="${{ github.event.before }}.."
+          else
+              # pull request
+              commit_range='HEAD~..'
+          fi
+          echo "commit_range=$commit_range" >> $GITHUB_OUTPUT
+      - name: Detect changes to recipes/
+        id: recipes_changes
+        run: |
+          touch duplicated_recipe_folders.txt
+          while read op path; do
+              case "$op" in
+                  A|M)
+                      echo "${path}" | cut -d '/' -f1,2 >> duplicated_recipe_folders.txt
+                      ;;
+              esac
+          done < <(git diff --color=never --name-status '${{ steps.commit_range_step.outputs.commit_range }}' -- recipes/)
+          sort -u duplicated_recipe_folders.txt > recipe_list.txt
+          cat recipe_list.txt
+          if [ -s recipe_list.txt ]; then
+              recipes_found=true
+          else
+              recipes_found=false
+          fi
+          echo "recipes_found=$recipes_found" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v3
+        with:
+          name: recipe_list
+          path: recipe_list.txt
+
+  build:
+    needs: setup
+    if: ${{ needs.setup.outputs.recipes_found == 'true' }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: all
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v3
+        with:
+          name: recipe_list
+          path: ../workflow_artifacts/
+      - name: Install required Python packages
+        run: python -m pip install build cibuildwheel PyYAML requests
+      - name: Build wheels
+        run: |
+          while read -r folder; do
+              python3 wheel_builder.py "$folder";
+          done < ../workflow_artifacts/recipe_list.txt
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheelhouse
+          path: wheelhouse/
+
+  save_all:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
+      with:
+        name: wheelhouse
+        path: wheels
+    - name: Commit and push changes
+      run: |
+        git config --local user.name actions-user
+        git config --local user.email "actions@github.com"
+        if ! git diff --exit-code; then
+          git add wheel/*.whl
+          git commit -am "GH Action Files added $(date)"
+          git push -f origin master
+        fi
+
+  # deploy:
+    # name: Deploy Wheels
+    # needs: build
+    # if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository_owner == 'galaxyproject' }}
+    # runs-on: ubuntu-latest
+    # steps:
+      # - uses: actions/download-artifact@v3
+        # with:
+          # name: wheelhouse
+          # path: wheelhouse/
+      # - name: Push
+        # id: push
+        # uses: cloudsmith-io/action@master
+        # with:
+          # api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          # command: "push"
+          # format: "python"
+          # owner: "modem7"
+          # repo: "wheels"
+          # republish: "true" # needed ONLY if version is not changing
+          # file: "./wheelhouse/*.whl"

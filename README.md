@@ -1,44 +1,19 @@
-# Things to update in new repo:
+Recipes and continuous integration (CI) to build [wheels](https://pythonwheels.com/)
+for Python packages that don't provide them on [PyPI](https://pypi.org/).
 
-```
-.wakatime-project
-.github/settings.yml
-.github/dependabot.yml
-README.md
-```
+A package recipe is a simple `meta.yaml` file (in [YAML](https://yaml.org) format), contained in a
+dedicated subdirectory of `recipes/` , specifying the package name and version,
+e.g. the recipe for Mercurial 6.1.1 would be in the file `recipes/mercurial/meta.yaml`
+containing:
 
+```yaml
 ---
-
-# Github documentation regarding .gitattributes
-https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings#per-repository-settings
-
----
-
-# Template repos for gitattributes
-https://github.com/alexkaratarakis/gitattributes
-
----
-
-# CI to check gitattribute files in a repo:
-
-```
-missing_attributes=$(git ls-files | git check-attr -a --stdin | grep "text eol=lf")
-if [[ "$missing_attributes" ]]; then
-  echo ".gitattributes rule missing for the following files:";
-  echo "$missing_attributes";
-else
-  echo "All files have a corresponding rule in .gitattributes";
-fi
+name: mercurial
+version: 6.1.1
 ```
 
----
-
-# Renormalize files in a repo:
-
-```
-git add . -u
-git commit -m "Saving files before refreshing line endings"
-git add --renormalize .
-git status
-git commit -m "Normalize all the line endings"
-```
+When a recipe is added to this repository or updated, a CI job downloads from
+PyPI the sdist archive for the specified package, and then builds the wheels
+using either [cibuildwheel](https://cibuildwheel.readthedocs.io) (default) or
+[build](https://pypa-build.readthedocs.io) (if it is a pure Python package
+specified with `purepy: true` in the recipe).

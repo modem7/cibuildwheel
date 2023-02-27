@@ -1,8 +1,8 @@
 #/bin/bash
 
 # Prerequesites
-sudo pip install -U build cibuildwheel PyYAML requests
-sudo apt install jq wget curl
+sudo python3 -m pip install -U build cibuildwheel PyYAML requests
+sudo apt install -y jq wget curl
 
 # Variables
 export PKGNAME="borgbackup"
