@@ -14,9 +14,9 @@ fi
 sudo pip install -U cloudsmith-cli
 
 # Upload to Cloudsmith
-for f in $PWD/wheelhouse/*.whl
+cd wheelhouse/
+for f in *.whl
 do
   echo "Processing $f file..."
-  # take action on each file. $f store current file name
   cloudsmith push python -W -k $CLOUDSMITH_API --no-republish modem7/wheels "$f"
 done
