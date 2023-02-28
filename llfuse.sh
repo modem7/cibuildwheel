@@ -29,6 +29,6 @@ cibuildwheel --platform linux --output-dir wheelhouse sdist/$PKGNAME-$PKGVER
 rm -rf ./sdist/$PKGNAME*
 
 # Remove leftover Docker images
-docker rmi tonistiigi/binfmt
-docker rmi multiarch/qemu-user-static
-docker rmi $(docker images | grep quay.io/pypa/ | awk "{print \$3}")
+docker inspect --type=image tonistiigi/binfmt >/dev/null 2>&1 && docker rmi tonistiigi/binfmt || echo 'binfmt image does not exist. Will not delete.'
+docker inspect --type=image quay.io/pypa/musllinux_1_1_x86_64 >/dev/null 2>&1 && docker rmi multiarch/qemu-user-static || echo 'qemu-user-static image does not exist. Will not delete.'
+docker images | grep quay.io/pypa/ | awk "{print \$3}" >/dev/null 2>&1 && docker rmi $(docker images | grep quay.io/pypa/ | awk "{print \$3}") || echo 'quay.io/pypa image does not exist. Will not delete.'

@@ -11,7 +11,7 @@ then
 fi
 
 # Prerequesites
-sudo pip install -U cloudsmith-cli
+sudo python3 -m pip install -U cloudsmith-cli
 
 # Upload to Cloudsmith
 cd wheelhouse/
