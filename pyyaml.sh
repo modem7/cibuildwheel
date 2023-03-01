@@ -5,12 +5,13 @@ sudo python3 -m pip install -U build cibuildwheel PyYAML requests
 sudo apt install -y jq wget curl
 
 # Variables
-export PKGNAME="msgpack"
+export PKGNAME="PyYAML"
 export PKGVER=$(grep "${PKGNAME}" requirements.txt | cut -d '=' -f 3 | tr -d '\012\015')
-export PKGURL=$(curl -s "https://pypi.org/pypi/${PKGNAME}/${PKGVER}/json" | jq -r '.urls[].url')
-export CIBW_BEFORE_ALL='apk add -Uu pkgconfig g++ && pip install -U pkgconfig pip setuptools wheel'
+export PKGURL=$(curl -s "https://pypi.org/pypi/${PKGNAME}/${PKGVER}/json" | jq -r '.urls[].url' | grep .tar.gz)
+export CIBW_BEFORE_ALL='apk add -Uu pkgconfig g++ yaml-dev python3-dev && pip install -U pkgconfig pip setuptools wheel'
 export CIBW_ARCHS_LINUX='x86_64 aarch64'
 export CIBW_BUILD='cp311-musllinux_*'
+export CIBW_ENVIRONMENT='C_INCLUDE_PATH=libyaml/include LIBRARY_PATH=libyaml/src/.libs LD_LIBRARY_PATH=libyaml/src/.libs PYYAML_FORCE_CYTHON=1 PYYAML_FORCE_LIBYAML=1'
 
 # Load Multiarch settings
 docker run --rm --privileged tonistiigi/binfmt
