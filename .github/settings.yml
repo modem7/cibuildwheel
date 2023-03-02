@@ -2,10 +2,9 @@
 # https://github.com/repository-settings/app
 
 repository:
-  #name: NewRepo
   description: CIBuildWheel
-  homepage: https://modem7.com
-  topics: default, repo, files
+  homepage: https://cloudsmith.io/~modem7/repos/wheels/packages/
+  topics: cibuildwheel, python, wheel, pypi
 
   private: false
   has_issues: true
