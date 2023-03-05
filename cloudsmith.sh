@@ -6,6 +6,7 @@ export CLOUDSMITH_API="${CLOUDSMITH_API:-}"
 # Ask for Cloudsmith API if not already set
 if [ -n CLOUDSMITH_API ]
 then
+    echo 'https://cloudsmith.io/user/settings/api/'
     echo "Enter Cloudsmith API token: "
     read CLOUDSMITH_API
 fi
