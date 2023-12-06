@@ -75,7 +75,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - uses: actions/download-artifact@v3
