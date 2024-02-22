@@ -1,7 +1,7 @@
 name: Build and upload wheels
 on: [push, pull_request]
 env:
-  CIBW_BUILD: 'cp311-musllinux_*'
+  CIBW_BUILD: 'cp312-musllinux_*'
 concurrency:
   # Group runs by PR, but keep runs on the default branch separate
   # because we do not want to cancel wheel uploads
@@ -77,7 +77,7 @@ jobs:
           platforms: all
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
           name: recipe_list

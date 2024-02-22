@@ -3,8 +3,8 @@
 set -e
 
 # Prerequesites
-sudo python3 -m pip install -U build cibuildwheel PyYAML requests
-sudo apt install -y jq wget curl
+# sudo python3 -m pip install -U build cibuildwheel PyYAML requests
+# sudo apt install -y jq wget curl
 
 # Variables
 export PKGNAME="borgbackup"
@@ -14,11 +14,11 @@ export CIBW_BEFORE_ALL='dnf install -y fuse glibc-devel pkgconf-pkg-config libac
 export CIBW_MANYLINUX_X86_64_IMAGE='quay.io/pypa/manylinux_2_28_x86_64'
 export CIBW_MANYLINUX_AARCH64_IMAGE='quay.io/pypa/manylinux_2_28_aarch64'
 export CIBW_ARCHS_LINUX='x86_64 aarch64'
-export CIBW_BUILD='cp311-manylinux_*'
+export CIBW_BUILD='cp312-manylinux_*'
 
 # Load Multiarch settings
-docker run --rm --privileged tonistiigi/binfmt
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+#docker run --rm --privileged tonistiigi/binfmt
+#docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 # Create directories
 mkdir -p sdist wheelhouse

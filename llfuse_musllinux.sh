@@ -1,8 +1,8 @@
 #/bin/bash
 
 # Prerequesites
-sudo python3 -m pip install -U build cibuildwheel PyYAML requests
-sudo apt install -y jq wget curl
+# sudo python3 -m pip install -U build cibuildwheel PyYAML requests
+# sudo apt install -y jq wget curl
 
 # Variables
 export PKGNAME="llfuse"
@@ -10,7 +10,7 @@ export PKGVER=$(grep "${PKGNAME}" requirements.txt | cut -d '=' -f 3 | tr -d '\0
 export PKGURL=$(curl -s "https://pypi.org/pypi/${PKGNAME}/${PKGVER}/json" | jq -r '.urls[].url')
 export CIBW_BEFORE_ALL='apk add -Uu pkgconfig fuse-dev g++ && pip install -U pkgconfig pip setuptools wheel'
 export CIBW_ARCHS_LINUX='x86_64 aarch64'
-export CIBW_BUILD='cp311-musllinux_*'
+export CIBW_BUILD='cp312-musllinux_*'
 
 # Load Multiarch settings
 docker run --rm --privileged tonistiigi/binfmt
