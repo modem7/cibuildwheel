@@ -14,7 +14,7 @@ export CIBW_BEFORE_ALL='dnf install -y fuse glibc-devel pkgconf-pkg-config libac
 export CIBW_MANYLINUX_X86_64_IMAGE='quay.io/pypa/manylinux_2_28_x86_64'
 export CIBW_MANYLINUX_AARCH64_IMAGE='quay.io/pypa/manylinux_2_28_aarch64'
 export CIBW_ARCHS_LINUX='x86_64 aarch64'
-export CIBW_BUILD='cp312-manylinux_*'
+export CIBW_BUILD='cp313-manylinux_*'
 
 # Load Multiarch settings
 #docker run --rm --privileged tonistiigi/binfmt

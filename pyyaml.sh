@@ -10,7 +10,7 @@ export PKGVER=$(grep "${PKGNAME}" requirements.txt | cut -d '=' -f 3 | tr -d '\0
 export PKGURL=$(curl -s "https://pypi.org/pypi/${PKGNAME}/${PKGVER}/json" | jq -r '.urls[].url' | grep .tar.gz)
 export CIBW_BEFORE_ALL='apk add -Uu pkgconfig g++ yaml-dev python3-dev && pip install -U pkgconfig pip setuptools wheel'
 export CIBW_ARCHS_LINUX='x86_64 aarch64'
-export CIBW_BUILD='cp312-musllinux_*'
+export CIBW_BUILD='cp313-musllinux_*'
 export CIBW_ENVIRONMENT='C_INCLUDE_PATH=libyaml/include LIBRARY_PATH=libyaml/src/.libs LD_LIBRARY_PATH=libyaml/src/.libs PYYAML_FORCE_CYTHON=1 PYYAML_FORCE_LIBYAML=1'
 
 # Load Multiarch settings
