@@ -1,4 +1,4 @@
 borgbackup==1.4.1
 llfuse==1.5.1
 PyYAML==6.0.2
-ruamel.yaml.clib==0.2.12
+ruamel.yaml.clib==0.2.14
