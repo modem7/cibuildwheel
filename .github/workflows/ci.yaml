@@ -57,7 +57,7 @@ jobs:
               recipes_found=false
           fi
           echo "recipes_found=$recipes_found" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: recipe_list
           path: recipe_list.txt
@@ -78,7 +78,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v6
         with:
           name: recipe_list
           path: ../workflow_artifacts/
@@ -89,7 +89,7 @@ jobs:
           while read -r folder; do
               python3 wheel_builder.py "$folder";
           done < ../workflow_artifacts/recipe_list.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: wheelhouse
           path: wheelhouse/
@@ -100,7 +100,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
     steps:
     - uses: actions/checkout@v5
-    - uses: actions/download-artifact@v5
+    - uses: actions/download-artifact@v6
       with:
         name: wheelhouse
         path: wheels
