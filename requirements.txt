@@ -1,4 +1,4 @@
 borgbackup==1.4.3
-llfuse==1.5.1
+llfuse==1.5.2
 PyYAML==6.0.3
 ruamel.yaml.clib==0.2.15
