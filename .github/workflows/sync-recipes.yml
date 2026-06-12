@@ -1,0 +1,79 @@
+name: Sync recipes from requirements.txt
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - requirements.txt
+  workflow_dispatch:  # manual trigger as escape hatch
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse requirements.txt and sync recipes
+        id: sync
+        run: |
+          python3 << 'EOF'
+          import re, os, pathlib
+
+          req_file = pathlib.Path("requirements.txt")
+          changed = []
+
+          for line in req_file.read_text().splitlines():
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              m = re.match(r'^([A-Za-z0-9_.\-]+)==([^\s]+)$', line)
+              if not m:
+                  continue
+              pkg_name, version = m.group(1), m.group(2)
+              # recipe dir uses lowercase package name
+              recipe = pathlib.Path(f"recipes/{pkg_name.lower()}/meta.yaml")
+              if not recipe.exists():
+                  print(f"No recipe found for {pkg_name}, skipping")
+                  continue
+              content = recipe.read_text()
+              # Update version line
+              new_content, n = re.subn(
+                  r'^(version:\s*).*$', f'\\g<1>{version}',
+                  content, flags=re.MULTILINE
+              )
+              if n and new_content != content:
+                  recipe.write_text(new_content)
+                  print(f"Updated {pkg_name} to {version}")
+                  changed.append(f"{pkg_name}=={version}")
+              else:
+                  print(f"{pkg_name} already at {version}")
+
+          if changed:
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write(f"changed=true\n")
+                  f.write(f"summary={', '.join(changed)}\n")
+          else:
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("changed=false\n")
+          EOF
+
+      - name: Create Pull Request
+        if: steps.sync.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: auto/sync-recipes
+          commit-message: "chore: sync recipes to ${{ steps.sync.outputs.summary }}"
+          title: "chore: sync recipes [${{ steps.sync.outputs.summary }}]"
+          body: |
+            Automated sync of recipe versions from `requirements.txt`.
+
+            **Updated:** `${{ steps.sync.outputs.summary }}`
+
+            CI will run automatically. Merge once green.
+          delete-branch: true
+          labels: automated
