@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '${{ needs.setup.outputs.py_version }}'
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v7
         with:
           name: recipe_list
           path: ../workflow_artifacts/
@@ -87,7 +87,7 @@ jobs:
           while read -r folder; do
               python3 wheel_builder.py "$folder";
           done < ../workflow_artifacts/recipe_list.txt
-      - uses: actions/upload-artifact@v8
+      - uses: actions/upload-artifact@v7
         with:
           name: wheelhouse
           path: wheelhouse/
