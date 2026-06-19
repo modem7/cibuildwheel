@@ -89,49 +89,47 @@ jobs:
           while read -r folder; do
               python3 wheel_builder.py "$folder";
           done < ../workflow_artifacts/recipe_list.txt
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v8
         with:
           name: wheelhouse
           path: wheelhouse/
 
-  save_all:
-    needs: build
-    runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
-    steps:
-    - uses: actions/checkout@v7
-    - uses: actions/download-artifact@v8
-      with:
-        name: wheelhouse
-        path: wheels
-    - name: Commit and push changes
-      run: |
-        git config --local user.name actions-user
-        git config --local user.email "actions@github.com"
-        if ! git diff --exit-code; then
-          git add wheel/*.whl
-          git commit -am "GH Action Files added $(date)"
-          git push -f origin master
-        fi
-
-  # deploy:
-    # name: Deploy Wheels
+  # save_all:
     # needs: build
-    # if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository_owner == 'galaxyproject' }}
     # runs-on: ubuntu-latest
+    # if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
     # steps:
-      # - uses: actions/download-artifact@v3
-        # with:
-          # name: wheelhouse
-          # path: wheelhouse/
-      # - name: Push
-        # id: push
-        # uses: cloudsmith-io/action@master
-        # with:
-          # api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
-          # command: "push"
-          # format: "python"
-          # owner: "modem7"
-          # repo: "wheels"
-          # republish: "true" # needed ONLY if version is not changing
-          # file: "./wheelhouse/*.whl"
+    # - uses: actions/checkout@v7
+    # - uses: actions/download-artifact@v8
+      # with:
+        # name: wheelhouse
+        # path: wheels
+    # - name: Commit and push changes
+      # run: |
+        # git config --local user.name actions-user
+        # git config --local user.email "actions@github.com"
+        # if ! git diff --exit-code; then
+          # git add wheel/*.whl
+          # git commit -am "GH Action Files added $(date)"
+          # git push -f origin master
+        # fi
+
+  deploy:
+      name: Deploy Wheels to Cloudsmith
+      needs: build
+      runs-on: ubuntu-latest
+      if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
+      steps:
+        - uses: actions/download-artifact@v8
+          with:
+            name: wheelhouse
+            path: wheelhouse/
+        - name: Install Cloudsmith CLI
+          uses: cloudsmith-io/cloudsmith-cli-action@v2
+          with:
+            api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+        - name: Push wheels to Cloudsmith
+          run: |
+            for whl in wheelhouse/*.whl; do
+              cloudsmith push python modem7/wheels "$whl" --republish
+            done
