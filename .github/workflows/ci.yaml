@@ -1,10 +1,6 @@
 name: Build and upload wheels
 on: [push, pull_request]
-env:
-  CIBW_BUILD: 'cp314-musllinux_*'
 concurrency:
-  # Group runs by PR, but keep runs on the default branch separate
-  # because we do not want to cancel wheel uploads
   group: pr-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
   cancel-in-progress: true
 jobs:
@@ -12,29 +8,29 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       recipes_found: ${{ steps.recipes_changes.outputs.recipes_found }}
+      py_version: ${{ steps.python_version.outputs.py_version }}
+      cp_tag: ${{ steps.python_version.outputs.cp_tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      # The range of commits to check for changes is:
-      # - `origin/master...` for all events happening on a feature branch
-      # - for events on the master branch we compare against the sha before the event
-      #   (note that this does not work for feature branch events since we want all
-      #   commits on the feature branch and not just the commits of the last event)
-      # - for pull requests we compare against the 1st ancestor, given the current
-      #   HEAD is the merge between the PR branch and the base branch
+      - name: Fetch Python version from docker-borgmatic Dockerfile
+        id: python_version
+        run: |
+          DOCKERFILE=$(curl -sf "https://raw.githubusercontent.com/modem7/docker-borgmatic/master/base-fullbuild/Dockerfile")
+          PY_VERSION=$(echo "$DOCKERFILE" | grep -oP '(?<=FROM python:)\d+\.\d+')
+          CP_TAG="cp$(echo "$PY_VERSION" | tr -d '.')"
+          echo "py_version=$PY_VERSION" >> $GITHUB_OUTPUT
+          echo "cp_tag=$CP_TAG" >> $GITHUB_OUTPUT
       - name: Set commit range
         id: commit_range_step
         run: |
           if [ "${{ github.event_name }}" = 'push' -a "${{github.ref}}" != 'refs/heads/master' ]; then
-              # push to a feature branch
               git fetch origin master
               commit_range='origin/master...'
           elif [ "${{ github.event_name }}" = 'push' -a "${{ github.ref }}" = 'refs/heads/master' ]; then
-              # push to the master branch, e.g. merge
               commit_range="${{ github.event.before }}.."
           else
-              # pull request
               commit_range='HEAD~..'
           fi
           echo "commit_range=$commit_range" >> $GITHUB_OUTPUT
@@ -69,6 +65,8 @@ jobs:
       matrix:
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      CIBW_BUILD: '${{ needs.setup.outputs.cp_tag }}-musllinux_*'
     steps:
       - uses: actions/checkout@v7
       - name: Set up QEMU
@@ -77,7 +75,7 @@ jobs:
           platforms: all
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '${{ needs.setup.outputs.py_version }}'
       - uses: actions/download-artifact@v8
         with:
           name: recipe_list
@@ -94,42 +92,30 @@ jobs:
           name: wheelhouse
           path: wheelhouse/
 
-  # save_all:
-    # needs: build
-    # runs-on: ubuntu-latest
-    # if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
-    # steps:
-    # - uses: actions/checkout@v7
-    # - uses: actions/download-artifact@v8
-      # with:
-        # name: wheelhouse
-        # path: wheels
-    # - name: Commit and push changes
-      # run: |
-        # git config --local user.name actions-user
-        # git config --local user.email "actions@github.com"
-        # if ! git diff --exit-code; then
-          # git add wheel/*.whl
-          # git commit -am "GH Action Files added $(date)"
-          # git push -f origin master
-        # fi
-
   deploy:
-      name: Deploy Wheels to Cloudsmith
-      needs: build
-      runs-on: ubuntu-latest
-      if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
-      steps:
-        - uses: actions/download-artifact@v8
-          with:
-            name: wheelhouse
-            path: wheelhouse/
-        - name: Install Cloudsmith CLI
-          uses: cloudsmith-io/cloudsmith-cli-action@v2
-          with:
-            api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
-        - name: Push wheels to Cloudsmith
-          run: |
-            for whl in wheelhouse/*.whl; do
-              cloudsmith push python modem7/wheels "$whl" --republish
-            done
+    name: Deploy Wheels to Cloudsmith
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheelhouse
+          path: wheelhouse/
+      - name: Test Authentication
+        env:
+          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+        run: |
+          curl -X GET \
+            -H "Authorization: Bearer $CLOUDSMITH_API_KEY" \
+            https://api.cloudsmith.io/v1/user/self/ \
+            | jq -r '.authenticated'
+      - name: Install Cloudsmith CLI
+        uses: cloudsmith-io/cloudsmith-cli-action@v2
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+      - name: Push wheels to Cloudsmith
+        run: |
+          for whl in wheelhouse/*.whl; do
+            cloudsmith push python modem7/wheels "$whl" --republish
+          done
