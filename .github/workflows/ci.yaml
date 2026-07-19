@@ -18,7 +18,7 @@ jobs:
         id: python_version
         run: |
           DOCKERFILE=$(curl -sf "https://raw.githubusercontent.com/modem7/docker-borgmatic/master/Dockerfile")
-          PY_VERSION=$(echo "$DOCKERFILE" | grep -oP '(?<=FROM python:)\d+\.\d+')
+          PY_VERSION=$(echo "$DOCKERFILE" | grep -oP '(?<=^ARG PYTHON_VERSION=)\d+\.\d+')
           CP_TAG="cp$(echo "$PY_VERSION" | tr -d '.')"
           echo "py_version=$PY_VERSION" >> $GITHUB_OUTPUT
           echo "cp_tag=$CP_TAG" >> $GITHUB_OUTPUT
