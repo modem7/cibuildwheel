@@ -10,7 +10,7 @@ export PKGVER=$(grep "${PKGNAME}" requirements.txt | cut -d '=' -f 3 | tr -d '\0
 export PKGURL=$(curl -s "https://pypi.org/pypi/${PKGNAME}/${PKGVER}/json" | jq -r '.urls[].url' | grep .tar.gz)
 export CIBW_BEFORE_ALL='apk add -Uu pkgconfig gcc musl-dev && pip install -U pkgconfig pip setuptools wheel'
 export CIBW_ARCHS_LINUX='x86_64 aarch64'
-export CIBW_BUILD='cp312-musllinux_*'
+export CIBW_BUILD='cp314-musllinux_*'
 
 # Load Multiarch settings
 # docker run --rm --privileged tonistiigi/binfmt
