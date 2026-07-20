@@ -73,7 +73,7 @@ jobs:
         uses: docker/setup-qemu-action@v4
         with:
           platforms: all
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '${{ needs.setup.outputs.py_version }}'
       - uses: actions/download-artifact@v8
