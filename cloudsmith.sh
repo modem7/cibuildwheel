@@ -18,7 +18,7 @@ sudo python3 -m pip install -U cloudsmith-cli
 # Upload to Cloudsmith
 echo "==> Uploading wheels to Cloudsmith"
 cd wheelhouse/
-for f in wheelhouse/*.whl
+for f in *.whl
 do
   echo "Processing $f file..."
   cloudsmith push python -W -k $CLOUDSMITH_API --no-republish modem7/wheels "$f"
@@ -26,6 +26,6 @@ done
 
 # Deleting wheels
 echo "==> Deleting wheels now they've been uploaded"
-rm -rf wheelhouse/*.whl
+rm -rf *.whl
 
 exit 0
