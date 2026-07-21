@@ -53,7 +53,7 @@ jobs:
               recipes_found=false
           fi
           echo "recipes_found=$recipes_found" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: recipe_list
           path: recipe_list.txt
@@ -87,7 +87,7 @@ jobs:
           while read -r folder; do
               python3 wheel_builder.py "$folder";
           done < ../workflow_artifacts/recipe_list.txt
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: wheelhouse
           path: wheelhouse/
