@@ -11,7 +11,7 @@ jobs:
       py_version: ${{ steps.python_version.outputs.py_version }}
       cp_tag: ${{ steps.python_version.outputs.cp_tag }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - name: Fetch Python version from docker-borgmatic Dockerfile
@@ -53,7 +53,7 @@ jobs:
               recipes_found=false
           fi
           echo "recipes_found=$recipes_found" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: recipe_list
           path: recipe_list.txt
@@ -68,15 +68,15 @@ jobs:
     env:
       CIBW_BUILD: '${{ needs.setup.outputs.cp_tag }}-musllinux_*'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
         with:
           platforms: all
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '${{ needs.setup.outputs.py_version }}'
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: recipe_list
           path: ../workflow_artifacts/
@@ -87,7 +87,7 @@ jobs:
           while read -r folder; do
               python3 wheel_builder.py "$folder";
           done < ../workflow_artifacts/recipe_list.txt
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: wheelhouse
           path: wheelhouse/
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: wheelhouse
           path: wheelhouse/
@@ -111,7 +111,7 @@ jobs:
             https://api.cloudsmith.io/v1/user/self/ \
             | jq -r '.authenticated'
       - name: Install Cloudsmith CLI
-        uses: cloudsmith-io/cloudsmith-cli-action@v2
+        uses: cloudsmith-io/cloudsmith-cli-action@159f1619275d5d3147f059c3cc110938ec221d16 # v2
         with:
           api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
       - name: Push wheels to Cloudsmith
