@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '${{ needs.setup.outputs.py_version }}'
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.1
         with:
           name: recipe_list
           path: ../workflow_artifacts/
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.1
         with:
           name: wheelhouse
           path: wheelhouse/
