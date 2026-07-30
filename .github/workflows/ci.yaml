@@ -111,7 +111,7 @@ jobs:
             https://api.cloudsmith.io/v1/user/self/ \
             | jq -r '.authenticated'
       - name: Install Cloudsmith CLI
-        uses: cloudsmith-io/cloudsmith-cli-action@v2.0.3
+        uses: cloudsmith-io/cloudsmith-cli-action@v3.0.1
         with:
           api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
       - name: Push wheels to Cloudsmith
