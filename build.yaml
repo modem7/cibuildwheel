@@ -1,0 +1,17 @@
+---
+# Single source of truth for what gets built.
+# Every recipe in recipes/ is built for every Python version and arch listed here.
+# CI builds whatever is missing from the index, so adding a Python version here
+# is all that is needed to get every package rebuilt and uploaded for it.
+
+python:
+  - "3.14"
+  - "3.15"
+
+archs:
+  - x86_64
+  - aarch64
+
+# Where published wheels are looked up (PEP 503 simple index) and pushed to.
+index_url: https://dl.cloudsmith.io/public/modem7/wheels/python/simple/
+cloudsmith_repo: modem7/wheels

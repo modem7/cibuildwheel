@@ -1,121 +1,83 @@
 name: Build and upload wheels
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and republish every wheel, even if already on the index
+        type: boolean
+        default: false
 concurrency:
   group: pr-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
   cancel-in-progress: true
 jobs:
-  setup:
+  plan:
     runs-on: ubuntu-latest
     outputs:
-      recipes_found: ${{ steps.recipes_changes.outputs.recipes_found }}
-      py_version: ${{ steps.python_version.outputs.py_version }}
-      cp_tag: ${{ steps.python_version.outputs.cp_tag }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_work: ${{ steps.plan.outputs.has_work }}
+      cloudsmith_repo: ${{ steps.plan.outputs.cloudsmith_repo }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - name: Fetch Python version from docker-borgmatic Dockerfile
-        id: python_version
-        run: |
-          DOCKERFILE=$(curl -sf "https://raw.githubusercontent.com/modem7/docker-borgmatic/master/Dockerfile")
-          PY_VERSION=$(echo "$DOCKERFILE" | grep -oP '(?<=^ARG PYTHON_VERSION=)\d+\.\d+')
-          CP_TAG="cp$(echo "$PY_VERSION" | tr -d '.')"
-          echo "py_version=$PY_VERSION" >> $GITHUB_OUTPUT
-          echo "cp_tag=$CP_TAG" >> $GITHUB_OUTPUT
-      - name: Set commit range
-        id: commit_range_step
-        run: |
-          if [ "${{ github.event_name }}" = 'push' -a "${{github.ref}}" != 'refs/heads/master' ]; then
-              git fetch origin master
-              commit_range='origin/master...'
-          elif [ "${{ github.event_name }}" = 'push' -a "${{ github.ref }}" = 'refs/heads/master' ]; then
-              commit_range="${{ github.event.before }}.."
-          else
-              commit_range='HEAD~..'
-          fi
-          echo "commit_range=$commit_range" >> $GITHUB_OUTPUT
-      - name: Detect changes to recipes/
-        id: recipes_changes
-        run: |
-          touch duplicated_recipe_folders.txt
-          while read op path; do
-              case "$op" in
-                  A|M)
-                      echo "${path}" | cut -d '/' -f1,2 >> duplicated_recipe_folders.txt
-                      ;;
-              esac
-          done < <(git diff --color=never --name-status '${{ steps.commit_range_step.outputs.commit_range }}' -- recipes/)
-          sort -u duplicated_recipe_folders.txt > recipe_list.txt
-          cat recipe_list.txt
-          if [ -s recipe_list.txt ]; then
-              recipes_found=true
-          else
-              recipes_found=false
-          fi
-          echo "recipes_found=$recipes_found" >> $GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v7.0.2
-        with:
-          name: recipe_list
-          path: recipe_list.txt
-
-  build:
-    needs: setup
-    if: ${{ needs.setup.outputs.recipes_found == 'true' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    env:
-      CIBW_BUILD: '${{ needs.setup.outputs.cp_tag }}-musllinux_*'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4.4.0
-        with:
-          platforms: all
       - uses: actions/setup-python@v7
         with:
-          python-version: '${{ needs.setup.outputs.py_version }}'
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          name: recipe_list
-          path: ../workflow_artifacts/
+          python-version: '3.x'
       - name: Install required Python packages
-        run: python -m pip install build cibuildwheel PyYAML requests
+        run: python -m pip install -r scripts/requirements.txt pytest
+      - name: Run tests
+        run: python -m pytest -q tests
+      - name: Plan missing wheels
+        id: plan
+        run: python scripts/wheels.py plan --github-output ${{ inputs.force && '--force' || '' }}
+
+  build:
+    name: ${{ matrix.recipe }} ${{ matrix.version }} ${{ matrix.arch }} (python ${{ matrix.python }})
+    needs: plan
+    if: ${{ needs.plan.outputs.has_work == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.x'
+      - name: Install required Python packages
+        run: python -m pip install -r scripts/requirements.txt
       - name: Build wheels
-        run: |
-          while read -r folder; do
-              python3 wheel_builder.py "$folder";
-          done < ../workflow_artifacts/recipe_list.txt
+        env:
+          RECIPE: ${{ matrix.recipe }}
+          ARCH: ${{ matrix.arch }}
+          PYTHONS: ${{ matrix.python }}
+        run: python scripts/wheels.py build "$RECIPE" --arch "$ARCH" --python $PYTHONS
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: wheelhouse
+          name: wheels-${{ matrix.recipe }}-${{ matrix.arch }}
           path: wheelhouse/
+          if-no-files-found: error
 
   deploy:
     name: Deploy Wheels to Cloudsmith
-    needs: build
+    needs: [plan, build]
     runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' && github.repository_owner == 'modem7' }}
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && github.repository_owner == 'modem7' }}
     steps:
       - uses: actions/download-artifact@v8.0.2
         with:
-          name: wheelhouse
+          pattern: wheels-*
+          merge-multiple: true
           path: wheelhouse/
-      - name: Test Authentication
-        env:
-          CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
-        run: |
-          curl -X GET \
-            -H "Authorization: Bearer $CLOUDSMITH_API_KEY" \
-            https://api.cloudsmith.io/v1/user/self/ \
-            | jq -r '.authenticated'
       - name: Install Cloudsmith CLI
         uses: cloudsmith-io/cloudsmith-cli-action@v3.1.1
         with:
           api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
       - name: Push wheels to Cloudsmith
+        env:
+          CLOUDSMITH_REPO: ${{ needs.plan.outputs.cloudsmith_repo }}
         run: |
           for whl in wheelhouse/*.whl; do
-            cloudsmith push python modem7/wheels "$whl" --republish
+            cloudsmith push python "$CLOUDSMITH_REPO" "$whl" --republish
           done

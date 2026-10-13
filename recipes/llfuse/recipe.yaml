@@ -1,0 +1,11 @@
+---
+name: llfuse
+version: "1.5.2"
+
+# Alpine packages added to the musllinux build image, which already ships gcc, g++,
+# make, pkgconf and linux-headers.
+apk:
+  - fuse-dev  # libfuse 2 headers and library
+
+# Run against each built wheel in a clean virtualenv.
+test: python -c "import llfuse; print(llfuse.__version__)"

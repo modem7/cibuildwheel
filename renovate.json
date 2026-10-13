@@ -1,4 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>modem7/renovate-config"]
+  "extends": ["github>modem7/renovate-config"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update recipe versions from PyPI",
+      "managerFilePatterns": ["/^recipes/[^/]+/recipe\\.yaml$/"],
+      "matchStrings": ["name: (?<depName>\\S+)\\nversion: \"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "pypi"
+    }
+  ]
 }
