@@ -3,6 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
+import pytest  # noqa: E402
 import wheels  # noqa: E402
 
 CONFIG = {"python": ["3.14", "3.15"], "archs": ["x86_64", "aarch64"]}
@@ -70,6 +71,44 @@ def test_cibuildwheel_env():
         "CIBW_BUILD": "cp314-musllinux_*",
         "CIBW_ARCHS_LINUX": "aarch64",
     }
+
+
+BORG_REQUIRES = ["msgpack<=1.2.1,>=1.0.3", "packaging", 'llfuse>=1.3.8; extra == "llfuse"']
+
+
+def test_newest_allowed_picks_highest_release_within_requirement():
+    releases = ["1.0.2", "1.0.3", "1.2.0", "1.2.1", "1.2.3", "1.3.0rc1"]
+    assert wheels.newest_allowed("msgpack", BORG_REQUIRES, releases) == "1.2.1"
+    assert wheels.newest_allowed("msgpack", ["msgpack>=1.0.3"], releases) == "1.2.3"
+
+
+def test_newest_allowed_ignores_extras_and_reports_no_match():
+    with pytest.raises(SystemExit):
+        wheels.newest_allowed("llfuse", BORG_REQUIRES, ["1.5.2"])
+    with pytest.raises(SystemExit):
+        wheels.newest_allowed("msgpack", BORG_REQUIRES, ["1.2.3"])
+
+
+def test_resolve_versions_follows_the_named_recipe():
+    def fetch(path):
+        if path == "borgbackup/1.4.5":
+            return {"info": {"requires_dist": BORG_REQUIRES}}
+        assert path == "msgpack"
+        sdist = [{"packagetype": "sdist", "yanked": False}]
+        return {
+            "releases": {
+                "1.2.0": sdist,
+                "1.2.1": sdist,
+                "1.2.1.post1": [{"packagetype": "sdist", "yanked": True}],
+                "1.2.3": sdist,
+                "not-a-version": sdist,
+            }
+        }
+
+    recipes = {"borgbackup": dict(BORG), "msgpack": {"name": "msgpack", "version_from": "borgbackup"}}
+    assert wheels.resolve_versions(recipes, fetch)["msgpack"]["version"] == "1.2.1"
+    with pytest.raises(SystemExit):
+        wheels.resolve_versions({"msgpack": {"name": "msgpack", "version_from": "borgbackup"}}, fetch)
 
 
 def test_repo_config_and_recipes_load():

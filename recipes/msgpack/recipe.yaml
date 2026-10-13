@@ -1,8 +1,8 @@
 ---
-# borgbackup requires msgpack<=1.2.1, and that release has no Python 3.15 wheels
-# on PyPI. Renovate is capped to match in renovate.json; raise both together.
 name: msgpack
-version: "1.2.1"
+# borgbackup caps the msgpack versions it accepts, so build the newest release
+# its requirement allows instead of pinning one here.
+version_from: borgbackup
 
 # Fails if the wheel fell back to the pure-Python implementation.
 test: python -c "import msgpack; assert msgpack.Packer.__module__ == 'msgpack._cmsgpack'"
