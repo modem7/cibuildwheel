@@ -18,11 +18,12 @@ import urllib.request
 from pathlib import Path
 
 import yaml
+from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name, parse_wheel_filename
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 ROOT = Path(__file__).resolve().parent.parent
-RECIPE_KEYS = {"name", "version", "apk", "environment", "test"}
+RECIPE_KEYS = {"name", "version", "version_from", "apk", "environment", "test"}
 # GitHub-hosted runner that builds each arch natively.
 RUNNERS = {"x86_64": "ubuntu-24.04", "aarch64": "ubuntu-24.04-arm"}
 
@@ -45,9 +46,13 @@ def load_recipe(path):
     unknown = set(recipe) - RECIPE_KEYS
     if unknown:
         raise SystemExit(f"{path}: unknown keys: {', '.join(sorted(unknown))}")
-    for key in ("name", "version"):
-        if not isinstance(recipe.get(key), str):
-            raise SystemExit(f"{path}: {key!r} is required and must be a string (quote the version)")
+    if not isinstance(recipe.get("name"), str):
+        raise SystemExit(f"{path}: 'name' is required and must be a string")
+    if ("version" in recipe) == ("version_from" in recipe):
+        raise SystemExit(f"{path}: set exactly one of 'version' and 'version_from'")
+    for key in ("version", "version_from"):
+        if key in recipe and not isinstance(recipe[key], str):
+            raise SystemExit(f"{path}: {key!r} must be a string (quote the version)")
     recipe.setdefault("apk", [])
     recipe.setdefault("environment", {})
     recipe.setdefault("test", None)
@@ -56,6 +61,53 @@ def load_recipe(path):
 
 def load_recipes(root=ROOT):
     return {path.parent.name: load_recipe(path) for path in sorted(root.glob("recipes/*/recipe.yaml"))}
+
+
+def pypi_json(path):
+    with urllib.request.urlopen(f"https://pypi.org/pypi/{path}/json", timeout=30) as response:
+        return json.load(response)
+
+
+def newest_allowed(name, requires_dist, releases):
+    """Return the newest of releases that the requirement on name in requires_dist allows."""
+    for line in requires_dist or []:
+        requirement = Requirement(line)
+        if canonicalize_name(requirement.name) != canonicalize_name(name):
+            continue
+        if requirement.marker and not requirement.marker.evaluate({"extra": ""}):
+            continue
+        allowed = list(requirement.specifier.filter(releases))
+        if not allowed:
+            raise SystemExit(f"No release of {name} satisfies {line!r}")
+        return str(max(allowed, key=Version))
+    raise SystemExit(f"No requirement on {name} found")
+
+
+def resolve_versions(recipes, fetch=pypi_json):
+    """Fill in the version of every recipe that takes it from another recipe's requirement."""
+    for recipe_dir, recipe in recipes.items():
+        source_dir = recipe.get("version_from")
+        if source_dir is None:
+            continue
+        source = recipes.get(source_dir)
+        if source is None or "version" not in source:
+            raise SystemExit(f"recipes/{recipe_dir}: version_from must name a recipe with a fixed version")
+        requires_dist = fetch(f"{source['name']}/{source['version']}")["info"]["requires_dist"]
+        releases = [
+            version
+            for version, files in fetch(recipe["name"])["releases"].items()
+            if is_version(version) and any(f["packagetype"] == "sdist" and not f["yanked"] for f in files)
+        ]
+        recipe["version"] = newest_allowed(recipe["name"], requires_dist, releases)
+    return recipes
+
+
+def is_version(text):
+    try:
+        Version(text)
+    except InvalidVersion:
+        return False
+    return True
 
 
 def cp_tag(python_version):
@@ -134,8 +186,7 @@ def cibuildwheel_env(recipe, python_versions, archs):
 def download_sdist(recipe, dest_dir):
     """Download the recipe's sdist from PyPI, verify its checksum and return its path."""
     url = f"https://pypi.org/pypi/{recipe['name']}/{recipe['version']}/json"
-    with urllib.request.urlopen(url, timeout=30) as response:
-        files = json.load(response)["urls"]
+    files = pypi_json(f"{recipe['name']}/{recipe['version']}")["urls"]
     sdists = [file for file in files if file["packagetype"] == "sdist"]
     if len(sdists) != 1:
         raise SystemExit(f"Expected exactly one sdist at {url}, found {len(sdists)}")
@@ -152,7 +203,7 @@ def download_sdist(recipe, dest_dir):
 
 def cmd_plan(args):
     config = load_config()
-    recipes = load_recipes()
+    recipes = resolve_versions(load_recipes())
     published = {} if args.force else {d: published_wheels(config["index_url"], r["name"]) for d, r in recipes.items()}
     jobs = plan(config, recipes, published, force=args.force)
     for job in jobs:
@@ -168,7 +219,7 @@ def cmd_plan(args):
 
 def cmd_build(args):
     config = load_config()
-    recipes = load_recipes()
+    recipes = resolve_versions(load_recipes())
     if args.recipe not in recipes:
         raise SystemExit(f"Unknown recipe {args.recipe!r} (available: {', '.join(recipes)})")
     recipe = recipes[args.recipe]

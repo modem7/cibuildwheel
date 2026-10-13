@@ -31,6 +31,19 @@ Edit the `python` list in `build.yaml`. Every recipe is built and uploaded for t
 
 Change `version` in its `recipe.yaml`. Renovate opens these PRs automatically.
 
+### Follow another package's requirement
+
+When one recipe limits which versions of another it accepts (borgbackup caps msgpack),
+replace `version` with `version_from`:
+
+```yaml
+name: msgpack
+version_from: borgbackup   # recipe directory name
+```
+
+The newest release that recipe's requirement allows is built, so it moves on its own
+when the other package is updated. `wheels.py plan --force` shows the version chosen.
+
 ### Add a package
 
 Create `recipes/<name>/recipe.yaml`, where `<name>` matches the PyPI name:
