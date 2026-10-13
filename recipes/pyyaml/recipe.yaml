@@ -1,0 +1,11 @@
+---
+name: PyYAML
+version: "6.0.3"
+
+apk:
+  - yaml-dev  # libyaml, for the C-accelerated loader and dumper
+
+environment:
+  PYYAML_FORCE_LIBYAML: "1"  # fail the build rather than fall back to pure Python
+
+test: python -c "import yaml; assert yaml.__with_libyaml__"
