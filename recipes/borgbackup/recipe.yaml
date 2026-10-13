@@ -1,0 +1,15 @@
+---
+name: borgbackup
+version: "1.4.5"
+
+# Alpine packages added to the musllinux build image, which already ships gcc, g++,
+# make, pkgconf and linux-headers.
+apk:
+  - openssl-dev    # libcrypto
+  - acl-dev        # libacl (borg.platform.linux)
+  - lz4-dev        # liblz4
+  - zstd-dev       # libzstd
+  - xxhash-dev     # libxxhash
+
+# Run against each built wheel in a clean virtualenv.
+test: borg --version
