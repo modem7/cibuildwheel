@@ -28,6 +28,17 @@ def test_is_published_ignores_manylinux_and_normalises_names():
         assert wheels.is_published(CLIB, "3.14", "x86_64", [filename])
 
 
+def test_published_everywhere_keeps_only_wheels_on_every_index():
+    listings = {
+        wheels.index_url("modem7/wheels"): ["a-1-cp314-cp314-musllinux_1_2_x86_64.whl", "a-1-cp315-cp315-musllinux_1_2_x86_64.whl"],
+        wheels.index_url("other/repo"): ["a-1-cp314-cp314-musllinux_1_2_x86_64.whl"],
+    }
+    fetch = lambda url, name: listings[url]  # noqa: E731
+    assert wheels.published_everywhere(["modem7/wheels", "other/repo"], "a", fetch) == [
+        "a-1-cp314-cp314-musllinux_1_2_x86_64.whl"
+    ]
+
+
 def test_plan_only_lists_missing_wheels():
     published = {
         "borgbackup": [
