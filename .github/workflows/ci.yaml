@@ -18,7 +18,7 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_work: ${{ steps.plan.outputs.has_work }}
-      cloudsmith_repo: ${{ steps.plan.outputs.cloudsmith_repo }}
+      cloudsmith_repos: ${{ steps.plan.outputs.cloudsmith_repos }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@v7
@@ -76,8 +76,10 @@ jobs:
           api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
       - name: Push wheels to Cloudsmith
         env:
-          CLOUDSMITH_REPO: ${{ needs.plan.outputs.cloudsmith_repo }}
+          CLOUDSMITH_REPOS: ${{ needs.plan.outputs.cloudsmith_repos }}
         run: |
-          for whl in wheelhouse/*.whl; do
-            cloudsmith push python "$CLOUDSMITH_REPO" "$whl" --republish
+          for repo in $CLOUDSMITH_REPOS; do
+            for whl in wheelhouse/*.whl; do
+              cloudsmith push python "$repo" "$whl" --republish
+            done
           done

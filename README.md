@@ -5,13 +5,14 @@
 Recipes and continuous integration (CI) to build musllinux (Alpine) [wheels](https://pythonwheels.com/)
 for Python packages that don't provide them on [PyPI](https://pypi.org/). Built with
 [cibuildwheel](https://cibuildwheel.readthedocs.io) and hosted on
-[Cloudsmith](https://dl.cloudsmith.io/public/modem7/wheels/python/simple/).
+Cloudsmith, in both [modem7/wheels](https://dl.cloudsmith.io/public/modem7/wheels/python/simple/)
+and [borgmatic-collective/borgmatic](https://dl.cloudsmith.io/public/borgmatic-collective/borgmatic/python/simple/).
 
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
-| `build.yaml` | Python versions and architectures every recipe is built for |
+| `build.yaml` | Python versions, architectures and Cloudsmith repos every recipe is built for |
 | `recipes/<name>/recipe.yaml` | One package: version, system packages, build environment, test |
 | `scripts/wheels.py` | Works out what is missing from the index and builds it |
 | `.github/workflows/ci.yaml` | Runs the script and uploads the result |
@@ -19,7 +20,8 @@ for Python packages that don't provide them on [PyPI](https://pypi.org/). Built 
 ## How it works
 
 CI compares what should exist (every recipe × Python version × architecture) against the
-Cloudsmith index and builds only what is missing. Pull requests build the missing wheels
+Cloudsmith index of every repo in `cloudsmith_repos`, and builds only what is missing from
+any of them. Each built wheel is pushed to every repo. Pull requests build the missing wheels
 as a check; pushes to `master` build and upload them. Nothing else triggers a build, so
 every task below is a one-line change.
 

@@ -12,6 +12,8 @@ archs:
   - x86_64
   - aarch64
 
-# Where published wheels are looked up (PEP 503 simple index) and pushed to.
-index_url: https://dl.cloudsmith.io/public/modem7/wheels/python/simple/
-cloudsmith_repo: modem7/wheels
+# Cloudsmith repos (owner/repo) every wheel is pushed to. A wheel counts as missing
+# until each repo's public index lists it, so adding a repo here backfills it.
+cloudsmith_repos:
+  - modem7/wheels
+  - borgmatic-collective/borgmatic

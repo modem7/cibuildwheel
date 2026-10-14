@@ -37,6 +37,9 @@ def load_config(root=ROOT):
     for arch in config["archs"]:
         if arch not in RUNNERS:
             raise SystemExit(f"build.yaml: unknown arch {arch!r} (known: {', '.join(RUNNERS)})")
+    repos = config.get("cloudsmith_repos")
+    if not repos or not all(isinstance(repo, str) and re.fullmatch(r"[\w.-]+/[\w.-]+", repo) for repo in repos):
+        raise SystemExit("build.yaml: cloudsmith_repos must be a non-empty list of owner/repo names")
     return config
 
 
@@ -114,6 +117,11 @@ def cp_tag(python_version):
     return "cp" + python_version.replace(".", "")
 
 
+def index_url(cloudsmith_repo):
+    """The public PEP 503 simple index of a Cloudsmith owner/repo."""
+    return f"https://dl.cloudsmith.io/public/{cloudsmith_repo}/python/simple/"
+
+
 def published_wheels(index_url, name):
     """Return the wheel filenames the index lists for a package."""
     url = f"{index_url.rstrip('/')}/{canonicalize_name(name)}/"
@@ -125,6 +133,12 @@ def published_wheels(index_url, name):
             return []
         raise
     return sorted(set(re.findall(r">\s*([^<>\s]+\.whl)\s*<", html)))
+
+
+def published_everywhere(cloudsmith_repos, name, fetch=published_wheels):
+    """Return the wheel filenames that every repo's index lists for a package."""
+    listings = [set(fetch(index_url(repo), name)) for repo in cloudsmith_repos]
+    return sorted(set.intersection(*listings))
 
 
 def is_published(recipe, python_version, arch, filenames):
@@ -204,17 +218,18 @@ def download_sdist(recipe, dest_dir):
 def cmd_plan(args):
     config = load_config()
     recipes = resolve_versions(load_recipes())
-    published = {} if args.force else {d: published_wheels(config["index_url"], r["name"]) for d, r in recipes.items()}
+    repos = config["cloudsmith_repos"]
+    published = {} if args.force else {d: published_everywhere(repos, r["name"]) for d, r in recipes.items()}
     jobs = plan(config, recipes, published, force=args.force)
     for job in jobs:
         print(f"{job['recipe']} {job['version']} {job['arch']}: python {job['python']}")
     if not jobs:
-        print("Nothing to build: every wheel is already on the index.")
+        print("Nothing to build: every wheel is already on every index.")
     if args.github_output:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"matrix={json.dumps({'include': jobs})}\n")
             f.write(f"has_work={'true' if jobs else 'false'}\n")
-            f.write(f"cloudsmith_repo={config['cloudsmith_repo']}\n")
+            f.write(f"cloudsmith_repos={' '.join(repos)}\n")
 
 
 def cmd_build(args):
