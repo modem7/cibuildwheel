@@ -1,2 +1,2 @@
-cibuildwheel==4.3.4
+cibuildwheel==4.3.5
 PyYAML==6.0.3
