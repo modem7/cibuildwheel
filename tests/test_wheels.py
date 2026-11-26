@@ -47,14 +47,14 @@ def test_plan_only_lists_missing_wheels():
             "borgbackup-1.4.5-cp315-cp315-musllinux_1_2_aarch64.whl",
         ]
     }
-    assert wheels.plan(CONFIG, {"borgbackup": BORG}, published) == [
+    assert wheels.plan(CONFIG, {"borgbackup": BORG}, published, {}) == [
         {"recipe": "borgbackup", "version": "1.4.5", "arch": "x86_64", "python": "3.15", "runner": "ubuntu-24.04"}
     ]
 
 
 def test_plan_builds_everything_for_unpublished_or_forced():
     everything = [("x86_64", "3.14 3.15"), ("aarch64", "3.14 3.15")]
-    jobs = wheels.plan(CONFIG, {"borgbackup": BORG}, {})
+    jobs = wheels.plan(CONFIG, {"borgbackup": BORG}, {}, {})
     assert [(job["arch"], job["python"]) for job in jobs] == everything
 
     published = {
@@ -64,9 +64,35 @@ def test_plan_builds_everything_for_unpublished_or_forced():
             for arch in CONFIG["archs"]
         ]
     }
-    assert wheels.plan(CONFIG, {"borgbackup": BORG}, published) == []
-    jobs = wheels.plan(CONFIG, {"borgbackup": BORG}, published, force=True)
+    assert wheels.plan(CONFIG, {"borgbackup": BORG}, published, {}) == []
+    jobs = wheels.plan(CONFIG, {"borgbackup": BORG}, published, {}, force=True)
     assert [(job["arch"], job["python"]) for job in jobs] == everything
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_plan_never_builds_wheels_pypi_ships(force):
+    upstream = {
+        "borgbackup": [
+            "borgbackup-1.4.5-cp315-cp315-musllinux_1_2_x86_64.whl",
+            "borgbackup-1.4.5-cp315-cp315-musllinux_1_2_aarch64.whl",
+        ]
+    }
+    jobs = wheels.plan(CONFIG, {"borgbackup": BORG}, {}, upstream, force=force)
+    assert [(job["arch"], job["python"]) for job in jobs] == [("x86_64", "3.14"), ("aarch64", "3.14")]
+
+
+def test_pypi_wheels_skips_sdists_and_yanked_files():
+    def fetch(path):
+        assert path == "borgbackup/1.4.5"
+        return {
+            "urls": [
+                {"filename": "a.whl", "packagetype": "bdist_wheel", "yanked": False},
+                {"filename": "b.whl", "packagetype": "bdist_wheel", "yanked": True},
+                {"filename": "c.tar.gz", "packagetype": "sdist", "yanked": False},
+            ]
+        }
+
+    assert wheels.pypi_wheels(BORG, fetch) == ["a.whl"]
 
 
 def test_cibuildwheel_env():
