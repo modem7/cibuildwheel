@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plan and build the wheels described by build.yaml and recipes/*/recipe.yaml.
 
-wheels.py plan                      list wheels missing from the index
+wheels.py plan                      list wheels missing from the index and not on PyPI
 wheels.py build <recipe>            build a recipe with cibuildwheel
 """
 
@@ -141,6 +141,12 @@ def published_everywhere(cloudsmith_repos, name, fetch=published_wheels):
     return sorted(set.intersection(*listings))
 
 
+def pypi_wheels(recipe, fetch=pypi_json):
+    """Return the wheel filenames PyPI ships (and has not yanked) for the recipe's version."""
+    files = fetch(f"{recipe['name']}/{recipe['version']}")["urls"]
+    return [f["filename"] for f in files if f["packagetype"] == "bdist_wheel" and not f["yanked"]]
+
+
 def is_published(recipe, python_version, arch, filenames):
     """Whether a musllinux wheel for this recipe version, Python and arch is among filenames."""
     for filename in filenames:
@@ -157,10 +163,13 @@ def is_published(recipe, python_version, arch, filenames):
     return False
 
 
-def plan(config, recipes, published, force=False):
+def plan(config, recipes, published, upstream, force=False):
     """Return one build job per recipe and arch that has Python versions left to build.
 
     published maps recipe directory name to the wheel filenames already on the index.
+    upstream maps it to the wheel filenames PyPI ships. Those are never built, even
+    with force: our copy would have the same filename but different hashes, which
+    breaks installs from hash-pinned lockfiles.
     """
     jobs = []
     for recipe_dir, recipe in recipes.items():
@@ -168,7 +177,8 @@ def plan(config, recipes, published, force=False):
             pythons = [
                 version
                 for version in config["python"]
-                if force or not is_published(recipe, version, arch, published.get(recipe_dir, []))
+                if not is_published(recipe, version, arch, upstream.get(recipe_dir, []))
+                and (force or not is_published(recipe, version, arch, published.get(recipe_dir, [])))
             ]
             if pythons:
                 jobs.append(
@@ -220,11 +230,12 @@ def cmd_plan(args):
     recipes = resolve_versions(load_recipes())
     repos = config["cloudsmith_repos"]
     published = {} if args.force else {d: published_everywhere(repos, r["name"]) for d, r in recipes.items()}
-    jobs = plan(config, recipes, published, force=args.force)
+    upstream = {d: pypi_wheels(r) for d, r in recipes.items()}
+    jobs = plan(config, recipes, published, upstream, force=args.force)
     for job in jobs:
         print(f"{job['recipe']} {job['version']} {job['arch']}: python {job['python']}")
     if not jobs:
-        print("Nothing to build: every wheel is already on every index.")
+        print("Nothing to build: every wheel is on PyPI or already on every index.")
     if args.github_output:
         with open(os.environ["GITHUB_OUTPUT"], "a") as f:
             f.write(f"matrix={json.dumps({'include': jobs})}\n")
@@ -251,8 +262,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    plan_parser = subparsers.add_parser("plan", help="list the wheels missing from the index")
-    plan_parser.add_argument("--force", action="store_true", help="plan every wheel, published or not")
+    plan_parser = subparsers.add_parser("plan", help="list the wheels missing from the index and not on PyPI")
+    plan_parser.add_argument("--force", action="store_true", help="plan every wheel PyPI lacks, published or not")
     plan_parser.add_argument("--github-output", action="store_true", help="write the job matrix to $GITHUB_OUTPUT")
     plan_parser.set_defaults(func=cmd_plan)
 

@@ -21,7 +21,8 @@ and [borgmatic-collective/borgmatic](https://dl.cloudsmith.io/public/borgmatic-c
 
 CI compares what should exist (every recipe × Python version × architecture) against the
 Cloudsmith index of every repo in `cloudsmith_repos`, and builds only what is missing from
-any of them. Each built wheel is pushed to every repo. Pull requests build the missing wheels
+any of them. A wheel that PyPI already ships is never built, even with **force**: a second copy
+with the same filename has different hashes, which breaks hash-pinned installs. Each built wheel is pushed to every repo. Pull requests build the missing wheels
 as a check; pushes to `master` build and upload them. Nothing else triggers a build, so
 every task below is a one-line change.
 
@@ -67,6 +68,7 @@ test: borg --version    # optional: run against each built wheel
 ### Rebuild everything
 
 Run the workflow manually from the Actions tab with **force** ticked.
+Wheels that PyPI ships are still skipped.
 
 ## Working out what a recipe needs
 
